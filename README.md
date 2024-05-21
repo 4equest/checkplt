@@ -8,7 +8,7 @@ Do you understand the capabilities of the tools you use? This simple analysis to
 
 Simply run the python file with the file name.
 ```
-python3 checkplt.py . /elf
+python3 checkplt.py ./elf
 ```
 You will then get the following output.
 ```
