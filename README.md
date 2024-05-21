@@ -1,6 +1,7 @@
 # Why is this necessary?
 
-Some elf file malware replaces dynamically linked function names with other names by rewriting .plt and rela.plt sections to prevent analysis. This involves a variety of factors, including lazy binding and changing the r_offset in the .rela.plt section.
+Some elf file malware replaces dynamically linked function names with other names by rewriting .plt and rela.plt sections to prevent analysis. 
+This includes lazy binding, changing the r_offset in the .rela.plt section, changing the push value in the .plt section, and many other factors.
 Threat actors want analysts to be unaware of this and blindly trust disassemblers such as gdb or sophisticated decompilers such as IDA.
 Do you understand the capabilities of the tools you use? This simple analysis tool can detect these tricks.
 
