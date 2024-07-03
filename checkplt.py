@@ -1,5 +1,6 @@
 import sys
 import struct
+import argparse
 import pygments.lexers.asm
 from elftools.elf.elffile import ELFFile
 from capstone import *
@@ -126,10 +127,14 @@ def get_plt_sec_target(plt_start, plt_data, plt_sec_start, plt_sec_data, got_sta
     return plt_stub_instructions
 
 if __name__ == "__main__":
-    console = Console()
-    if len(sys.argv) != 2:
-        print("Usage: python3 checkplt.py <elf_file_path>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Check plt ^_-')
+    parser.add_argument('elf_file_path', type=str, help='Path to the ELF file')
+    parser.add_argument('--json', action='store_true', help='Print JSON if specified')
 
-    elf_file_path = sys.argv[1]
-    detect_tampered_linking(elf_file_path)
+    args = parser.parse_args()
+    
+    console = Console()
+
+    detect_tampered_linking(args.elf_file_path)
+    # todo detectで表示じゃなくてデータの受け取りだけをする
+    # そして, args.jsonに合わせて表示したりjsonで表示したりする　ファイルへの出力はいらないかな　やっぱいるか
