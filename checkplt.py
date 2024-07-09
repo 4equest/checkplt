@@ -1,4 +1,5 @@
 import sys
+import json
 import struct
 import argparse
 import pygments.lexers.asm
@@ -46,7 +47,7 @@ def detect_tampered_linking(elf_file_path):
         relaplt_table.add_column("r_offset", justify="left", style="green")
         relaplt_table.add_column("r_info", justify="left", style="cyan")
         relaplt_table.add_column("type", justify="left", style="cyan")
-        
+        console.print(relaplt_table)
         
         results = []
         for idx, rel in enumerate(relaplt.iter_relocations()):
@@ -60,21 +61,9 @@ def detect_tampered_linking(elf_file_path):
                     results.append({"tampered": True, "index": idx, "symbol": symbol_name, "dynamic": jmp_target, "r_offset": rel.entry.r_offset})
                 else:
                     results.append({"tampered": False, "index": idx, "symbol": symbol_name, "dynamic": jmp_target, "r_offset": rel.entry.r_offset})
-
-        console.print(relaplt_table)
-        result_table = Table(title="[bold]Result")
-        result_table.add_column("", justify="center", style="cyan bold")
-        result_table.add_column("symbol", justify="left", style="cyan")
-        result_table.add_column("dynamic", justify="left", style="green")
-        result_table.add_column("", justify="center", style="dim")
-        result_table.add_column("r_offset", justify="left", style="green")
-        for result in results:
-            if result["tampered"] :
-                result_table.add_row(f"[red]{str(result['index'])}", f"[red bold]{result['symbol']}", hex(result["dynamic"]), "->", f"[red bold]{hex(result['r_offset'])}({next(result_['symbol'] for result_ in results if result['r_offset'] == result_['dynamic'])})")
-            else:
-                result_table.add_row(str(result['index']), result["symbol"], hex(result["dynamic"]), "->", hex(result["r_offset"]))
-
-        console.print(result_table)
+                    
+        return results
+        
 
 def get_plt_target(plt_start, plt_data):
     md = Cs(CS_ARCH_X86, CS_MODE_64)
@@ -135,6 +124,21 @@ if __name__ == "__main__":
     
     console = Console()
 
-    detect_tampered_linking(args.elf_file_path)
-    # todo detectで表示じゃなくてデータの受け取りだけをする
-    # そして, args.jsonに合わせて表示したりjsonで表示したりする　ファイルへの出力はいらないかな　やっぱいるか
+    results = detect_tampered_linking(args.elf_file_path)
+    
+    if not args.json:
+        result_table = Table(title="[bold]Result")
+        result_table.add_column("", justify="center", style="cyan bold")
+        result_table.add_column("symbol", justify="left", style="cyan")
+        result_table.add_column("dynamic", justify="left", style="green")
+        result_table.add_column("", justify="center", style="dim")
+        result_table.add_column("r_offset", justify="left", style="green")
+        for result in results:
+            if result["tampered"] :
+                result_table.add_row(f"[red]{str(result['index'])}", f"[red bold]{result['symbol']}", hex(result["dynamic"]), "->", f"[red bold]{hex(result['r_offset'])}({next(result_['symbol'] for result_ in results if result['r_offset'] == result_['dynamic'])})")
+            else:
+                result_table.add_row(str(result['index']), result["symbol"], hex(result["dynamic"]), "->", hex(result["r_offset"]))
+
+        console.print(result_table)
+    else:
+        print(json.dumps(results, indent=4))
