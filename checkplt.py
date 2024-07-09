@@ -10,6 +10,11 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.syntax import Syntax
 
+
+def console_print(string):
+    if not args.json:
+        console.print(string)
+    
 def detect_tampered_linking(elf_file_path):
     with open(elf_file_path, 'rb') as file:
         elffile = ELFFile(file)
@@ -22,11 +27,11 @@ def detect_tampered_linking(elf_file_path):
         got_plt = elffile.get_section_by_name('.got.plt')
         
         if plt is None:
-            console.print("[bold red]no .plt section")
+            console_print("[bold red]no .plt section")
             sys.exit(1)
         if got_plt is None:
-            console.print("[bold yellow]no .got.plt section")
-            console.print("[bold yellow]maybe not lazy binding?")
+            console_print("[bold yellow]no .got.plt section")
+            console_print("[bold yellow]maybe not lazy binding?")
             
         if plt and plt_sec is None:
             plt_stub_instructions = get_plt_target(plt.header.sh_addr, plt.data())
@@ -35,11 +40,11 @@ def detect_tampered_linking(elf_file_path):
         elif got and plt_sec:
             plt_stub_instructions = get_plt_sec_target(plt.header.sh_addr, plt.data(), plt_sec.header.sh_addr, plt_sec.data(), got.header.sh_addr, got.data())
         else:
-            console.print("[bold red]no .got.plt and .plt.sec section")
+            console_print("[bold red]no .got.plt and .plt.sec section")
             sys.exit(1)
 
         if len(plt_stub_instructions) != int(relaplt.data_size / relaplt.entry_size):
-            console.print(f"[bold yellow]dynamic linking count {len(plt_stub_instructions)} != .rela.plt entry count {int(relaplt.data_size / relaplt.entry_size)}")
+            console_print(f"[bold yellow]dynamic linking count {len(plt_stub_instructions)} != .rela.plt entry count {int(relaplt.data_size / relaplt.entry_size)}")
 
         relaplt_table = Table(title=".rela.plt")
         relaplt_table.add_column("", justify="center", style="cyan bold")
@@ -47,7 +52,7 @@ def detect_tampered_linking(elf_file_path):
         relaplt_table.add_column("r_offset", justify="left", style="green")
         relaplt_table.add_column("r_info", justify="left", style="cyan")
         relaplt_table.add_column("type", justify="left", style="cyan")
-        console.print(relaplt_table)
+        console_print(relaplt_table)
         
         results = []
         for idx, rel in enumerate(relaplt.iter_relocations()):
@@ -62,6 +67,21 @@ def detect_tampered_linking(elf_file_path):
                 else:
                     results.append({"tampered": False, "index": idx, "symbol": symbol_name, "dynamic": jmp_target, "r_offset": rel.entry.r_offset})
                     
+                    
+        result_table = Table(title="[bold]Result")
+        result_table.add_column("", justify="center", style="cyan bold")
+        result_table.add_column("symbol", justify="left", style="cyan")
+        result_table.add_column("dynamic", justify="left", style="green")
+        result_table.add_column("", justify="center", style="dim")
+        result_table.add_column("r_offset", justify="left", style="green")
+        for result in results:
+            if result["tampered"] :
+                result_table.add_row(f"[red]{str(result['index'])}", f"[red bold]{result['symbol']}", hex(result["dynamic"]), "->", f"[red bold]{hex(result['r_offset'])}({next(result_['symbol'] for result_ in results if result['r_offset'] == result_['dynamic'])})")
+            else:
+                result_table.add_row(str(result['index']), result["symbol"], hex(result["dynamic"]), "->", hex(result["r_offset"]))
+
+        console_print(result_table)
+        
         return results
         
 
@@ -81,7 +101,7 @@ def get_plt_target(plt_start, plt_data):
         else:
             disasm_result.append(f"{hex(instructions[i].address)} {instructions[i].mnemonic} {op_str}")
 
-    console.print(Panel(Syntax("\n".join(disasm_result), lexer=pygments.lexers.asm.CObjdumpLexer()), title=".plt", expand=False))
+    console_print(Panel(Syntax("\n".join(disasm_result), lexer=pygments.lexers.asm.CObjdumpLexer()), title=".plt", expand=False))
     return plt_stub_instructions
 
 def get_plt_sec_target(plt_start, plt_data, plt_sec_start, plt_sec_data, got_start, got_data):
@@ -111,7 +131,7 @@ def get_plt_sec_target(plt_start, plt_data, plt_sec_start, plt_sec_data, got_sta
         else:
             disasm_result.append(f"{hex(plt_sec_instructions[i].address)} {plt_sec_instructions[i].mnemonic} {op_str}")
                     
-    console.print(Panel(Syntax("\n".join(disasm_result), lexer=pygments.lexers.asm.CObjdumpLexer()), title=".plt.sec", expand=False))
+    console_print(Panel(Syntax("\n".join(disasm_result), lexer=pygments.lexers.asm.CObjdumpLexer()), title=".plt.sec", expand=False))
 
     return plt_stub_instructions
 
@@ -126,19 +146,5 @@ if __name__ == "__main__":
 
     results = detect_tampered_linking(args.elf_file_path)
     
-    if not args.json:
-        result_table = Table(title="[bold]Result")
-        result_table.add_column("", justify="center", style="cyan bold")
-        result_table.add_column("symbol", justify="left", style="cyan")
-        result_table.add_column("dynamic", justify="left", style="green")
-        result_table.add_column("", justify="center", style="dim")
-        result_table.add_column("r_offset", justify="left", style="green")
-        for result in results:
-            if result["tampered"] :
-                result_table.add_row(f"[red]{str(result['index'])}", f"[red bold]{result['symbol']}", hex(result["dynamic"]), "->", f"[red bold]{hex(result['r_offset'])}({next(result_['symbol'] for result_ in results if result['r_offset'] == result_['dynamic'])})")
-            else:
-                result_table.add_row(str(result['index']), result["symbol"], hex(result["dynamic"]), "->", hex(result["r_offset"]))
-
-        console.print(result_table)
-    else:
+    if args.json:
         print(json.dumps(results, indent=4))
